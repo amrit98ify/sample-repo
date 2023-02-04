@@ -9,6 +9,7 @@ import { FontAwesome5 } from '@expo/vector-icons';
 import SettingsPage from '../pages/Settings'
 import Todo from './TodoList/Todo';
 import { SimpleLineIcons } from '@expo/vector-icons';
+import Expense from './ExpenseTracker/Expense';
 
 export default function Home() {
   const [currentPage, setCurrentPage] = useState('home');
@@ -128,7 +129,7 @@ export default function Home() {
             ?
             <Todo/>
             : 
-              <Text>Expense Tracker</Text>
+              <Expense/>
       }
       <View style={{height: 50, width: "100%", backgroundColor: 'white', justifyContent: "center", flexDirection: 'column'}}>
         <View style={{justifyContent: "space-evenly", flexDirection: 'row'}}>
