@@ -1,19 +1,40 @@
 import { React, useEffect, useState } from 'react'
-import { KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import { Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { AntDesign } from '@expo/vector-icons';
 // import Task from './Task';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 
 export default function Expense() {
     const [expenses, setExpenses] = useState([]);
     const [addExpenseModal, setAddExpenseModal] = useState(false);
     const [reviewExpenseModal, setReviewExpenseModal] = useState(false);
+    const [itemToDelete, setItemToDelete] = useState();
+    const [viewExpense, setViewExpense] = useState(null);
     const [currExp, setCurrExp] = useState({
         amount: 0,
         comment: "",
         month: 0
     });
+    
+    const [expFinal, setExpFinal] = useState([
+        {
+            month: 1,
+            monthName: "January",
+            monthTotal: 0
+        },
+        {
+            month: 2,
+            monthName: "February",
+            monthTotal: 0
+        },
+        {
+            month: 3,
+            monthName: "March",
+            monthTotal: 0
+        }
+    ]);
     const [itemValid, setItemValid] = useState('');
 
     useEffect(() => {
@@ -21,7 +42,10 @@ export default function Expense() {
             try {
               const jsonValue = await AsyncStorage.getItem('storedExpenses')
               let fetchedExpenses = (jsonValue != null ? JSON.parse(jsonValue) : []);
-              setExpenses(fetchedExpenses.sort((a,b) => a.month - b.month))
+              const sortedExpenses = fetchedExpenses.sort((a,b) => a.month - b.month);
+              setExpenses(sortedExpenses);
+
+              calculateTotal(sortedExpenses);
             } catch(e) {
               console.log(e)
             } finally {
@@ -33,12 +57,44 @@ export default function Expense() {
     },[])
 
     useEffect(() => {
-        console.log(currExp)
     },[currExp])
+
+    function calculateTotal(exp){
+        let expTotal = [
+            {
+                month: 1,
+                monthName: "January",
+                monthTotal: 0
+            },
+            {
+                month: 2,
+                monthName: "February",
+                monthTotal: 0
+            },
+            {
+                month: 3,
+                monthName: "March",
+                monthTotal: 0
+            }
+        ];
+
+        if (exp && exp.length > 0) {
+            for(let i = 0; i < expTotal.length; i++) {
+                for (let j = 0; j < exp.length; j++) {
+                    if (parseInt(exp[j].month) === expTotal[i].month) {
+                        expTotal[i].monthTotal =
+                            expTotal[i].monthTotal + parseInt(exp[j].amount);
+                    }
+                }
+            }
+            setExpFinal(expTotal);
+        }
+    }
 
     function addItem() {
         const updatedList = [...expenses, currExp];
         setExpenses(updatedList);
+        calculateTotal(updatedList);
         storeData(updatedList);
         setCurrExp({
             amount: 0,
@@ -59,12 +115,6 @@ export default function Expense() {
         }
       }
 
-    // function deleteTask(taskToRemove) {
-    //     const newTasks = tasks.filter((thisTask) => thisTask !== taskToRemove)
-    //     setTasks(newTasks);
-    //     storeData(newTasks);
-    // }
-
     function validateItem (){
         const itemToValidate = currExp;
         let valid = false;
@@ -83,6 +133,38 @@ export default function Expense() {
         else {
             setItemValid('invalid');
         }
+    }
+
+    function confirmDelete() {
+        Alert.alert(
+            'Delete?',
+            'Are you sure you want to delete this expense?',
+            [
+                {
+                    text: "Yes",
+                    style: "destructive",
+                    onPress: () => deleteExpense()
+                },
+                {
+                    text: "No",
+                    style: "cancel"
+                }
+            ]
+        )
+    }
+
+    function deleteExpense() {
+        //create a temporary list, with a copy of the original list
+        let newExpenseList = expenses.slice();
+        //remove the selected item from the copied list
+        newExpenseList.splice(itemToDelete, 1);
+
+        //overwrite the original list, with the copy list
+        setExpenses(newExpenseList);
+        //save the updated expenses in the state
+        storeData(newExpenseList);
+        calculateTotal(newExpenseList);
+        setViewExpense(null);
     }
 
     return (
@@ -128,14 +210,57 @@ export default function Expense() {
                     </View>
                     :
                     <View style={styles.modal.content}>
-                        <TouchableOpacity onPress={() => setReviewExpenseModal(false)} style={{alignSelf: "flex-end"}}>
-                            <AntDesign name="closecircle" size={24} color="#0C418C" />
-                        </TouchableOpacity>
-                        <View style={{justifyContent: "space-between", flex: 0.6, marginVertical: "5%"}}>
-                            
+                        <View>
+                            <TouchableOpacity onPress={() => setReviewExpenseModal(false)} style={{alignSelf: "flex-end"}}>
+                                <AntDesign name="closecircle" size={24} color="#0C418C" />
+                            </TouchableOpacity>
+                            <View style={{marginVertical: "5%"}}>
+                                {
+                                    expFinal ?
+                                        expFinal.map((item, index) => {
+                                            return (
+                                                <View key={index} style={{flexDirection: "row", justifyContent: "space-between", marginHorizontal: "10%", marginVertical: 5}}>
+                                                    <Text style={{fontSize: 16}}>{item.monthName}:</Text>
+                                                    <Text style={{fontSize: 16}}>{item.monthTotal}</Text>
+                                                </View>
+                                            )
+                                        })
+                                    :
+                                        <></>
+                                }
+                            </View>
                         </View>
                     </View>
                     }
+                </View>
+            </Modal>
+
+            <Modal transparent={true} visible={viewExpense !== null} animationType={"fade"}>
+                <View style={styles.modal.background}>
+                    
+                    <View style={styles.modal.content}>
+                        <TouchableOpacity onPress={() => setViewExpense(null)} style={{alignSelf: "flex-end"}}>
+                            <AntDesign name="closecircle" size={24} color="#0C418C" />
+                        </TouchableOpacity>
+                        { viewExpense ?
+                        <View>
+                            <View style={{justifyContent: "space-between", height: "50%"}}>
+                                <Text style={{textAlign: "center", fontSize: 18}}>Review this expense</Text>
+                                <View style={{alignSelf: "center"}}>
+                                    <Text>Name: {viewExpense.comment}</Text>
+                                    <Text>Month: {viewExpense.month}</Text>
+                                    <Text>Amount: {viewExpense.amount}</Text>
+                                </View>
+                            </View>
+                        </View>
+                        :
+                        <></>
+                        }
+                        <TouchableOpacity onPress={() => confirmDelete()} style={{alignSelf: "center"}}>
+                            <MaterialCommunityIcons name="delete-circle-outline" size={40} color="red" />
+                        </TouchableOpacity>
+                    </View>
+                    
                 </View>
             </Modal>
             <Text style={styles.heading}>Expense Tracker</Text>
@@ -150,11 +275,11 @@ export default function Expense() {
                 {
                     expenses.map((item, index) => {
                         return (
-                            <View key={index} style={{flexDirection: "row", justifyContent: "space-between", paddingTop: 10}}>
+                            <TouchableOpacity onPress={() => {setViewExpense(item); setItemToDelete(index)}} key={index} style={{flexDirection: "row", justifyContent: "space-between", paddingTop: 15}}>
                                 <Text style={styles.tableRowText}>{item.month}</Text>
                                 <Text style={styles.tableRowText}>{item.comment}</Text>
                                 <Text style={styles.tableRowText}>{item.amount}</Text>
-                            </View>
+                            </TouchableOpacity>
                             )
                         }
                     )
